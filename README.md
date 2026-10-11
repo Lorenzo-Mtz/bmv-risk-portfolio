@@ -121,3 +121,7 @@ La primera ejecución del notebook 01 descarga los precios de Yahoo Finance y lo
 ## Autor / Author
 
 Lorenzo Martínez Ruiz — Ingeniería en Transformación Digital y Negocios, Tec de Monterrey.
+
+## Uso de IA / AI assistance
+
+Este proyecto se desarrolló con asistencia de Claude (Anthropic). La mayor parte del código, las pruebas unitarias y la estructura de los notebooks se generaron con IA. El alcance, las decisiones metodológicas (universo, benchmark, exclusión de datos), la revisión del código y la interpretación de los resultados son del autor; las conclusiones de cada notebook fueron redactadas por el autor y revisadas con IA.
