@@ -1,9 +1,9 @@
 # BMV Risk & Portfolio Lab
 
-**ES** — Construcción de portafolios y medición de riesgo de mercado para acciones de la Bolsa Mexicana de Valores (BMV), en Python, con backtesting *walk-forward* y pruebas estadísticas.
-**EN** — Portfolio construction and market-risk measurement for Mexican Stock Exchange (BMV) equities, in Python, with walk-forward backtesting and statistical tests.
+**ES** — Construcción de portafolios, medición de riesgo de mercado y pronóstico de volatilidad para acciones de la Bolsa Mexicana de Valores (BMV), en Python, con backtesting *walk-forward* y pruebas estadísticas.
+**EN** — Portfolio construction, market-risk measurement and volatility forecasting for Mexican Stock Exchange (BMV) equities, in Python, with walk-forward backtesting and statistical tests.
 
-> **Estado / Status:** bloques 1–3 completos (datos, portafolios, riesgo de mercado). Pronóstico de volatilidad en curso. / Blocks 1–3 complete (data, portfolios, market risk). Volatility forecasting in progress.
+> **Estado / Status:** completo: datos, portafolios, riesgo de mercado y pronóstico de volatilidad. / Complete: data, portfolios, market risk and volatility forecasting.
 
 ---
 
@@ -11,8 +11,9 @@
 
 1. ¿Alguna forma de repartir el capital (igual ponderado, mínima varianza, máximo Sharpe, HRP) mejora de forma creíble a las alternativas simples, una vez descontados los costos?
 2. ¿Los modelos habituales de VaR cumplen lo que prometen cuando se evalúan fuera de muestra?
+3. ¿Un modelo de *machine learning* (XGBoost) pronostica la volatilidad mejor que EWMA y GARCH?
 
-La respuesta corta: **mínima varianza redujo el riesgo; máximo Sharpe fue la peor estrategia; ninguna le gana al índice de forma estadísticamente distinguible; y los VaR de ventana fija fallan al 99%.**
+La respuesta corta: **mínima varianza redujo el riesgo; máximo Sharpe fue la peor estrategia; ninguna le gana al índice de forma estadísticamente distinguible; los VaR de ventana fija fallan al 99%; y XGBoost no superó a los modelos clásicos de volatilidad.**
 
 ## Resultados principales
 
@@ -47,7 +48,23 @@ VaR al 99% a un día sobre el portafolio igual ponderado, pronosticado cada día
 - **Suponer normalidad cuesta donde más importa:** el CVaR histórico al 99% es 1.54 veces el que predice la normal (3.99% contra 2.59%).
 - **El histórico filtrado**, que combina volatilidad EWMA con el cuantil empírico, es el único que no se rechaza en los cinco portafolios evaluados. Se añadió después de ver fallar a los otros tres, así que su resultado debe confirmarse en otro periodo.
 
-### 3. Datos
+### 3. Pronóstico de volatilidad
+
+Varianza a un día del portafolio igual ponderado, con reentrenamiento *walk-forward* cada 21 días y ventana expansiva, evaluada del 12-jul-2019 al 8-oct-2026 (1,820 días). QLIKE es la pérdida estándar para pronósticos de varianza; menor es mejor. Detalle en [`notebooks/04_volatilidad.ipynb`](notebooks/04_volatilidad.ipynb).
+
+| Modelo | QLIKE | Contra EWMA | *t* de la diferencia | Volatilidad anual pronosticada (realizada: 16.8%) |
+|---|---|---|---|---|
+| GARCH(1,1) | 1.396 | −1.1% | −1.42 | 16.2% |
+| EWMA (λ = 0.94) | 1.411 | – | – | 16.8% |
+| XGBoost | 1.534 | +8.7% | 4.49 | 14.4% |
+| Ventana fija, 252 días | 1.555 | +10.2% | 4.02 | 16.8% |
+
+- **GARCH fue el mejor, pero su ventaja sobre EWMA no es estadísticamente distinguible** (*t* = −1.42).
+- **XGBoost fue significativamente peor que EWMA** y se quedó corto de forma sistemática. Su pronóstico más alto en todo el periodo fue 45% anualizado, contra 64% de GARCH: un modelo de árboles no puede pronosticar por encima de lo que vio al entrenar.
+- **Esa subestimación tiene consecuencias:** usado para un VaR al 99%, XGBoost produce 47 excepciones cuando se esperaban 18.
+- XGBoost se usó con hiperparámetros fijos, sin búsqueda; el resultado dice que esa configuración no supera a los modelos clásicos, no que ningún modelo de ML pueda hacerlo.
+
+### 4. Datos
 
 - **América Móvil (AMXB) se excluyó:** el 41% de sus días tiene retorno exactamente cero en Yahoo Finance, lo que distorsiona su correlación con el resto.
 - **El benchmark es el ETF NAFTRAC y no el índice `^MXX`:** el índice es de precios y no incluye dividendos (3.3% anual contra 5.6% del NAFTRAC en la misma ventana), lo que le daría más de 2 puntos de ventaja por año a cualquier portafolio.
@@ -64,15 +81,15 @@ VaR al 99% a un día sobre el portafolio igual ponderado, pronosticado cada día
 - **Sin *look-ahead bias*:** toda decisión en `t` usa solo información disponible hasta `t−1`. Hay pruebas unitarias que alteran datos futuros y verifican que pesos y pronósticos pasados no cambian.
 - **Validación *walk-forward*;** nunca particiones aleatorias en series de tiempo.
 - **Costos de transacción y deriva de pesos** entre rebalanceos; la rotación se mide contra los pesos ya derivados.
-- **Parámetros fijados de antemano** (ventana de 252 días, rebalanceo mensual, λ = 0.94). No se probaron variantes para escoger la mejor.
+- **Parámetros fijados de antemano** (ventana de 252 días, rebalanceo mensual, λ = 0.94, hiperparámetros de XGBoost). No se buscaron los que dieran el mejor resultado; las dos variantes que se probaron después de ver resultados están declaradas en sus notebooks.
 - **Los resultados negativos o modestos se reportan tal cual.**
-- **51 pruebas unitarias** (`pytest`) con casos de solución conocida.
+- **60 pruebas unitarias** (`pytest`) con casos de solución conocida.
 
 ## Limitaciones / Limitations
 
 - **Sesgo de supervivencia:** el universo es la muestra del IPC de septiembre de 2026 aplicada a toda la ventana desde 2015, no la composición histórica. Las emisoras se eligieron sabiendo que hoy son grandes y líquidas, y quedan fuera las que salieron del índice (p. ej. Elektra, Televisa, Cuervo). Esto favorece a todos los portafolios frente al NAFTRAC; los resultados son una cota optimista.
 - **Sharpe con tasa libre de riesgo en cero:** sirve para comparar estrategias entre sí, no como exceso sobre CETES.
-- **Calidad de datos:** `yfinance` es adecuado para aprendizaje, no una fuente de grado profesional. Al NAFTRAC le faltan unos 7 días por año (feriados de EE. UU. en los que la BMV operó), que se rellenan con el precio anterior. Los precios de Sigma (antes Alfa) muestran caídas que coinciden con las escisiones de Nemak y Alpek y que no parecen estar ajustadas.
+- **Calidad de datos:** `yfinance` es adecuado para aprendizaje, no una fuente de grado profesional. Al NAFTRAC le faltan unos 7 días por año (feriados de EE. UU. en los que la BMV operó), que se rellenan con el precio anterior. Los precios de Sigma (antes Alfa) muestran caídas que coinciden con las escisiones de Nemak y Alpek y que no parecen estar ajustadas. Hay cuatro días en que Yahoo repite los precios de todas las emisoras; se quitan en el notebook 04 y su efecto en los demás es mínimo.
 - **Costos simplificados:** un costo proporcional fijo no incluye impacto en precio.
 - **Kupiec solo cuenta excepciones;** no revisa si llegan agrupadas.
 - Proyecto educativo; **no es asesoría de inversión**.
@@ -84,7 +101,8 @@ bmv-risk-portfolio/
 ├── notebooks/
 │   ├── 01_eda.ipynb           # datos, limpieza y hechos estilizados
 │   ├── 02_portafolios.ipynb   # estrategias y backtest walk-forward
-│   └── 03_var.ipynb           # VaR, CVaR y prueba de Kupiec
+│   ├── 03_var.ipynb           # VaR, CVaR y prueba de Kupiec
+│   └── 04_volatilidad.ipynb   # EWMA y GARCH contra XGBoost
 ├── src/
 │   ├── config.py              # universo, benchmark, fechas y parámetros
 │   ├── data.py                # descarga, caché y limpieza de precios
@@ -92,7 +110,7 @@ bmv-risk-portfolio/
 │   ├── backtest.py            # backtest walk-forward con deriva y costos
 │   ├── metrics.py             # retorno, volatilidad, Sharpe, Sortino, drawdown
 │   ├── risk.py                # VaR, CVaR, VaR rodante y Kupiec
-│   ├── volatility.py          # EWMA y pérdida QLIKE
+│   ├── volatility.py          # pronósticos EWMA, GARCH y XGBoost; pérdidas QLIKE y MSE
 │   └── plots.py               # estilo y gráficas compartidas
 ├── tests/                     # pruebas unitarias (pytest)
 └── data/                      # caché en parquet (ignorado por git)
@@ -104,16 +122,17 @@ bmv-risk-portfolio/
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-pytest                           # 51 pruebas
-jupyter lab                      # ejecutar los notebooks en orden: 01 → 02 → 03
+pytest                           # 60 pruebas
+jupyter lab                      # ejecutar los notebooks en orden: 01 → 02 → 03 → 04
 ```
 
 La primera ejecución del notebook 01 descarga los precios de Yahoo Finance y los guarda en `data/`.
 
 ## Trabajo futuro / Next steps
 
-- Pronóstico de volatilidad: EWMA y GARCH como línea base contra XGBoost, con validación *walk-forward*.
+- Búsqueda de hiperparámetros de XGBoost con validación *walk-forward* anidada, y volatilidad realizada con datos intradía como objetivo.
 - Prueba de independencia de Christoffersen para las excepciones del VaR.
+- VaR con simulación histórica filtrada sobre volatilidad GARCH en lugar de EWMA.
 - CETES a 28 días como tasa libre de riesgo.
 - Covarianza con contracción de Ledoit-Wolf.
 - Universo con la composición histórica del índice, para eliminar el sesgo de supervivencia.

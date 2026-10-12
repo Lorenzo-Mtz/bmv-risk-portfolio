@@ -19,6 +19,11 @@ COLORS = {
     "Normal": "#eb6834",
     "EWMA": "#1baf7a",
     "Histórico filtrado": "#eda100",
+    # Modelos de volatilidad (notebook 04); EWMA conserva su color
+    "Ventana fija": "#2a78d6",
+    "GARCH": "#eb6834",
+    "XGBoost": "#6250d6",
+    "Realizada": "#c3c2b7",
 }
 INK = "#0b0b0b"
 MUTED = "#c3c2b7"
@@ -45,7 +50,7 @@ def line_chart(frame: pd.DataFrame, title: str, ax: plt.Axes | None = None) -> p
         frame[name].plot(ax=ax, color=COLORS.get(name), label=name)
     ax.set_title(title, loc="left")
     ax.set_xlabel("")
-    ax.legend(ncol=len(frame.columns), loc="upper left", bbox_to_anchor=(0, -0.08))
+    ax.legend(ncol=len(frame.columns), loc="upper left", bbox_to_anchor=(0, -0.17))
     return ax
 
 
@@ -81,3 +86,16 @@ def var_chart(returns: pd.Series, forecasts: pd.DataFrame, title: str) -> plt.Fi
     axes[0].set_title(title, loc="left")
     fig.tight_layout()
     return fig
+
+
+def barh_chart(values: pd.Series, title: str, fmt: str = "{:.0%}") -> plt.Axes:
+    """Barras horizontales ordenadas de mayor a menor, con el valor en la punta."""
+    values = values.sort_values()
+    _, ax = plt.subplots(figsize=(8, 0.34 * len(values) + 0.8))
+    bars = ax.barh(values.index, values, height=0.55, color=COLORS["Igual ponderado"])
+    ax.bar_label(bars, labels=[fmt.format(v) for v in values], padding=4, color=INK, fontsize=9)
+    ax.set_title(title, loc="left")
+    ax.grid(False)
+    ax.spines["bottom"].set_visible(False)
+    ax.set_xticks([])
+    return ax
